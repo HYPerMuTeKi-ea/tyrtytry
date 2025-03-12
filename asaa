@@ -1,0 +1,33 @@
+import numpy as np
+from uncertainties import ufloat
+from uncertainties.umath import *
+
+# 已知参数（假设值，需根据实际数据替换）
+V = 1000e-6  # 烧瓶体积 [m³] (1000 cm³ → 0.001 m³)
+d_tube = 16e-3  # 玻璃管直径 [m]
+A = np.pi * (d_tube/2)**2  # 横截面积 [m²]
+M = 0.005  # 钢珠质量 [kg] (假设值)
+
+# 测量数据示例（需替换为实际数据）
+gas_data = {
+    "Argon": {"f": 10.0, "P": 101325},  # 频率 [Hz]，压力 [Pa]（标准大气压）
+    "Nitrogen": {"f": 8.5, "P": 101325},
+    "CO2": {"f": 7.2, "P": 101325}
+}
+
+def calculate_gamma(M, V, f, P, A):
+    gamma = (4 * np.pi**2 * M * V * f**2) / (P * A**2)
+    return gamma
+
+for gas, data in gas_data.items():
+    f = data["f"]
+    P = data["P"]
+    gamma = calculate_gamma(M, V, f, P, A)
+    print(f"{gas}: γ = {gamma:.3f}")
+
+# 定义带不确定度的参数
+f_Ar = ufloat(10.0, 0.1)  # 频率 ±0.1 Hz
+P_Ar = ufloat(101325, 500)  # 压力 ±500 Pa
+
+gamma_Ar = calculate_gamma(M, V, f_Ar, P_Ar, A)
+print(f"Argon (with uncertainty): γ = {gamma_Ar:.3f}")
