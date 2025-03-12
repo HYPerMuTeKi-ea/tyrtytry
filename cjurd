@@ -1,0 +1,118 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# =============================================
+# 1. 参数定义与误差设置（需替换为实际数据）
+# =============================================
+V = 1000e-6          # 烧瓶体积 [m³] (1000 cm³ → 0.001 m³)
+dV = 5e-6            # 体积误差 ±5 cm³ → 0.000005 m³
+d_tube = 16e-3       # 玻璃管直径 [m]
+d_d_tube = 0.1e-3    # 直径误差 ±0.1 mm → 0.0001 m
+M = 0.005            # 钢珠质量 [kg]
+dM = 0.0001          # 质量误差 ±0.1 g → 0.0001 kg
+
+# 计算横截面积 A = π*(d/2)^2 及其误差
+A = np.pi * (d_tube/2)**2
+dA = np.pi * d_tube/2 * d_d_tube  # 误差传播公式: dA = (π*d/2) * dd
+
+# 测量数据示例（需替换为实际数据）
+gas_data = {
+    "Argon": {"f": 10.0, "df": 0.1, "P": 101325, "dP": 500},
+    "Nitrogen": {"f": 8.5, "df": 0.1, "P": 101325, "dP": 500},
+    "CO2": {"f": 7.2, "df": 0.1, "P": 101325, "dP": 500}
+}
+
+# =============================================
+# 2. 计算γ及其误差的函数
+# =============================================
+def calculate_gamma_with_error(M, dM, V, dV, f, df, P, dP, A, dA):
+    # 计算 γ 的标称值
+    gamma_nominal = (4 * np.pi**2 * M * V * f**2) / (P * A**2)
+    
+    # 计算各偏导数（误差传播公式）
+    dgamma_dM = (4 * np.pi**2 * V * f**2) / (P * A**2)
+    dgamma_dV = (4 * np.pi**2 * M * f**2) / (P * A**2)
+    dgamma_df = (8 * np.pi**2 * M * V * f) / (P * A**2)
+    dgamma_dP = -(4 * np.pi**2 * M * V * f**2) / (P**2 * A**2)
+    dgamma_dA = -(8 * np.pi**2 * M * V * f**2) / (P * A**3)
+    
+    # 总误差
+    dgamma = np.sqrt(
+        (dgamma_dM * dM)**2 +
+        (dgamma_dV * dV)**2 +
+        (dgamma_df * df)**2 +
+        (dgamma_dP * dP)**2 +
+        (dgamma_dA * dA)**2
+    )
+    
+    return gamma_nominal, dgamma
+
+# =============================================
+# 3. 计算结果
+# =============================================
+gamma_values, gamma_errors = [], []
+for gas, data in gas_data.items():
+    gamma, dgamma = calculate_gamma_with_error(
+        M, dM, V, dV, data["f"], data["df"], data["P"], data["dP"], A, dA
+    )
+    gamma_values.append(gamma)
+    gamma_errors.append(dgamma)
+    print(f"{gas}: γ = {gamma:.3f} ± {dgamma:.3f}")
+
+# 理论值（根据手册Q2.1-Q2.2）
+gamma_classical = [1.667, 1.4, 1.33]  # 经典理论
+gamma_quantum = [1.667, 1.4, 1.4]     # 量子理论（假设振动模式未激活）
+
+# =============================================
+# 4. 绘制图表
+# =============================================
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 中文显示（可选）
+plt.rcParams['axes.unicode_minus'] = False
+
+# --------------------------
+# 图1：实验值与理论值对比（柱状图）
+# --------------------------
+plt.figure(figsize=(10, 5))
+x = np.arange(len(gas_data))
+width = 0.25  # 柱宽
+
+plt.bar(x - width, gamma_values, width, yerr=gamma_errors, capsize=5, label='实验值')
+plt.bar(x, gamma_classical, width, label='经典理论')
+plt.bar(x + width, gamma_quantum, width, label='量子理论')
+
+plt.xticks(x, gas_data.keys())
+plt.xlabel('气体')
+plt.ylabel('γ')
+plt.title('实验值与理论值对比')
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.show()
+
+# --------------------------
+# 图2：残差图（实验值 - 经典理论值）
+# --------------------------
+residuals = np.array(gamma_values) - np.array(gamma_classical)
+plt.figure(figsize=(8, 4))
+plt.scatter(gas_data.keys(), residuals, c='red', s=100, zorder=3)
+plt.axhline(0, color='black', linestyle='--')
+plt.errorbar(gas_data.keys(), residuals, yerr=gamma_errors, fmt='none', ecolor='gray', capsize=5)
+plt.xlabel('气体')
+plt.ylabel('残差 (实验值 - 理论值)')
+plt.title('实验值与经典理论的残差')
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.show()
+
+# --------------------------
+# 图3：频率与γ的关系（散点图）
+# --------------------------
+frequencies = [data["f"] for data in gas_data.values()]
+plt.figure(figsize=(8, 5))
+plt.errorbar(frequencies, gamma_values, xerr=[data["df"] for data in gas_data.values()], 
+             yerr=gamma_errors, fmt='o', markersize=8, capsize=5, label='实验值')
+plt.plot(frequencies, gamma_classical, 's--', label='经典理论')
+plt.xlabel('振荡频率 (Hz)')
+plt.ylabel('γ')
+plt.title('频率与γ的关系')
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.show()
